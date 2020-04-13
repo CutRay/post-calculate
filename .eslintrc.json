@@ -10,9 +10,14 @@
     "ecmaVersion": 2018
   },
   "rules": {
+    "indent": [
+      "error",
+      4
+    ],
     "quotes": ["error", "single"],
     "semi": ["error", "never", {
       "beforeStatementContinuationChars": "never"
-    }]
+    }],
+    "no-inner-declarations": "off"
   }
 }
