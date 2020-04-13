@@ -1,0 +1,15 @@
+{
+  "name": "post-calculator",
+  "version": "1.0.0",
+  "description": "郵便料金の計算とパターンを表示する",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "ReiKato",
+  "license": "ISC",
+  "dependencies": {
+    "babel-eslint": "^10.1.0",
+    "eslint": "^6.8.0"
+  }
+}
