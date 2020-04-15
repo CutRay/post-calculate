@@ -12,6 +12,9 @@
 
 <body>
   <div id="app">
+    <nav class="navbar navbar-dark bg-primary fixed-top">
+      <a class="navbar-brand" href="#">郵便量計器</a>
+    </nav>
     <div class="container">
       <div class="row justify-content-md-center">
         <div class="col-lg-9">
@@ -20,7 +23,9 @@
               <label for="textarea1">データ入力</label>
               <textarea id="textarea1" class="form-control" v-model="form"></textarea>
             </div>
-            <button class="btn btn-primary btn-block" @click="test" type="button">実行</button>
+            <button class="btn btn-primary btn-block" @click="calculation" type="button">
+              実行
+            </button>
           </form>
           <p>{{results}}</p>
         </div>
@@ -28,6 +33,7 @@
     </div>
   </div>
 </body>
+
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script>
   let app = new Vue({
@@ -36,78 +42,81 @@
       return {
         message: 'Hello Vue.js',
         form: '',
-        worker: null,
-        results: []
+        worker: {},
+        results: [],
+      }
+    },
+    watch: {
+      form: function (val) {
+
       }
     },
     methods: {
       test() {
-        // CPUコア数*2 程度がおおまかな高速化の限度。
-        // 4コアCPUなら4〜8にしておく
-        const MAX_WORKERS = 8
-
-        // 判定に使う素数。ある程度大きくないと
-        // 高速化できているのがわからない
-        const num = 100 //件数入力
-        const price = 58000 //合計金額入力
-        const arr = [...Array(num + 1).keys()]
-        const bundle = Math.ceil(arr.length / MAX_WORKERS)
-        const slicedTarget = []
-        for (let i = 0; i < arr.length; i += bundle) {
-          slicedTarget.push(arr.slice(i, i + bundle))
+        alert()
+      },
+      calculation() {
+        const newWorkerViaBlob = function (relativePath) {
+          const baseURL = window.location.href
+            .replace(/\\/g, '/')
+            .replace(/\/[^\/]*$/, '/')
+          const array = ['importScripts("' + baseURL + relativePath + '");']
+          const blob = new Blob(array, {
+            type: 'text/javascript',
+          })
+          var url = window.URL.createObjectURL(blob)
+          return new Worker(url)
         }
-        // 分割したジョブを格納する配列
-        const jobs = []
-
-        // 時間を計測する
-        console.time('primeNumber')
-
-        // 各Workerにジョブを割り振る
-        for (let i = 0; i < slicedTarget.length; i++) {
-          const newWorkerViaBlob = function (relativePath) {
-            const baseURL = window.location.href.replace(/\\/g, '/').replace(/\/[^\/]*$/, '/')
-            const array = ['importScripts("' + baseURL + relativePath + '");']
-            const blob = new Blob(array, {
-              type: 'text/javascript'
-            })
-            var url = window.URL.createObjectURL(blob)
-            return new Worker(url)
+        const newWorker = function (relativePath) {
+          try {
+            return newWorkerViaBlob(relativePath)
+          } catch (e) {
+            return new Worker(relativePath)
           }
-          const newWorker = function (relativePath) {
-            try {
-              return newWorkerViaBlob(relativePath)
-            } catch (e) {
-              return new Worker(relativePath)
-            }
-          };
-          const worker = newWorker('worker.js')
-          const from = slicedTarget[i][0]
-          const to = slicedTarget[i].slice(-1)[0]
-
-          const promise = new Promise((resolve, reject) => {
-            worker.addEventListener('message', (message) => {
-              resolve(message.data)
-            })
-          })
-          promise.then((result) => {
-            console.log(result)
-            if (result.length > 0)
-              this.results.push(result)
-          })
-          jobs.push(promise)
-          worker.postMessage({
-            num: num,
-            price: price,
-            from: from,
-            to: to
-          })
         }
-        Promise.all(jobs).then((results) => {
-          console.timeEnd('primeNumber')
+
+        if (Object.keys(this.worker).length) {
+          this.worker.terminate()
+          this.worker = {}
+        }
+        const text = this.form.replace(/\r\n|\r/g, "\n")
+        const lines = text.split('\n').filter(Boolean)
+        const jobs = []
+        lines.forEach((el) => {
+          const params = el.replace(/\t/g, ' ').split(' ').filter(Boolean)
+          if (params.length === 2) {
+            const num = Number(params[0]) //件数入力
+            const price = Number(params.slice(-1)[0]) //合計金額入力
+            this.worker = newWorker('worker.js')
+            this.worker.postMessage({
+              num: num,
+              price: price,
+            })
+            const promise = new Promise((resolve, reject) => {
+              this.worker.addEventListener('message', (message) => {
+                console.log(message.data)
+                if (message.data === 'finish')
+                  resolve()
+                else {
+                  console.log(this)
+                  this.results.push(message.data)
+                }
+              })
+            })
+            jobs.push(promise)
+          }
         })
-      }
+        Promise.all(jobs).then(() => {
+          console.log('Allfinish')
+        })
+      },
     },
   })
 </script>
+<style>
+  #app {
+    padding-top: 60px;
+  }
+</style>
 
 </html>

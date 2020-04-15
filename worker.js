@@ -1,30 +1,40 @@
-let res=[]
-async function pricePattern(num, price, para = [], count = 1) {
-    for (let i = 0; i <= num; i++){
-        para.push(i)
-        if (count !== 5) {
-            count += 1
-            pricePattern(num - i, price, para, count)
-            count -= 1
-        }
-        if (count === 5&&i===num&&para[0]*580+para[1]*390+para[2]*250+para[3]*210+para[4]*140+para[5]*120===price) {
-            res.push(para.join('\t'))
-        }
-        para.pop()
+const dp = {0:[0]}
+const columns = [58, 39, 25, 21, 14, 12]
+
+function dfs(price, num, depth, result) {
+  if (num === 0) {
+    self.postMessage(result)
+    return
+  }
+  if (depth === 6) return
+  for (let i = 0; i <= num; i++) {
+    if (price - columns[depth] * i < 0) break
+    if (dp[num - i].includes(price- columns[depth] * i)) {
+      result[depth] = i
+      dfs(price - columns[depth] * i, num - i, depth + 1, result)
     }
+  }
 }
 
-// メッセージ（数値）を受け取ったら素数がどうかを判定し、
-// 結果をメッセージとして送信します。
 self.addEventListener('message', (message) => {
-    const num = message.data.num
-    const price = message.data.price
-    const countFrom = message.data.from
-    const countTo = message.data.to
-    console.log('起動')
-    for (let i = countFrom; i <= countTo; i++){
-        console.log(i)
-        pricePattern(num-i, price, [i])
+  const num = message.data.num
+  const price = message.data.price / 10
+  if (num * columns.slice(-1)[0] > price||num * columns[0] < price) {
+    self.postMessage('finish')
+    return
+  }
+  for (let i = 0; i < num; i++) {
+    for (let j = 0; j < price; j++) {
+      if (!dp[i].includes(j)) continue
+      if (!dp[i + 1])
+        dp[i + 1] = []
+      for (let k = 0; k < 6; k++) {
+        dp[i + 1].push(j + columns[k])
+      }
     }
-    self.postMessage(res)
+  }
+  const result = [0, 0, 0, 0, 0, 0]
+  dfs(price, num, 0, result)
+  
+  self.postMessage('finish')
 })
