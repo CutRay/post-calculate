@@ -6,28 +6,54 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Type" content="text/html" />
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
-    integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+    integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 </head>
 
 <body>
-  <div id="app">
+  <div id="app" style=" padding-top:64px;">
     <nav class="navbar navbar-dark bg-primary fixed-top">
-      <a class="navbar-brand" href="#">郵便量計器</a>
+      <a class="navbar-brand" href="#">郵便料計器</a>
     </nav>
     <div class="container">
-      <div class="row justify-content-md-center">
+      <div class="row justify-content-center">
         <div class="col-lg-9">
+          <h1 style="font-size:1.75rem">郵便料計器</h1>
           <form>
             <div class="form-group">
-              <label for="textarea1">データ入力</label>
-              <textarea id="textarea1" class="form-control" v-model="form"></textarea>
+              <div class="alert alert-danger" role="alert" style="margin:16px 0px 32px 0px" v-show="!isValid">
+                ・不正な行があります
+              </div>
+              <textarea id="textarea1" class="form-control" v-model="form" rows="6"
+                placeholder="データを入力してください  ※複数行入力可能です&#13;&#10;(件数 料金)&#13;&#10;(ex: 5 1060)"></textarea>
+              <div class="row justify-content-center" style="margin-top:16px">
+                <div class="col-md-6">
+                  <button class="btn btn-block btn-primary" @click="calculation" type="button" :disabled="!isValid">
+                    実行
+                  </button>
+                </div>
+              </div>
             </div>
-            <button class="btn btn-primary btn-block" @click="calculation" type="button">
-              実行
-            </button>
           </form>
-          <p>{{results}}</p>
+          <div class="row justify-content-center" style="margin-top:16px">
+            <div class="py-2 col-2 text-center text-white bg-primary border border-black">580円</div>
+            <div class="py-2 col-2 text-center text-white bg-primary border border-black">390円</div>
+            <div class="py-2 col-2 text-center text-white bg-primary border border-black">250円</div>
+            <div class="py-2 col-2 text-center text-white bg-primary border border-black">210円</div>
+            <div class="py-2 col-2 text-center text-white bg-primary border border-black">140円</div>
+            <div class="py-2 col-2 text-center text-white bg-primary border border-black">120円</div>
+            <template v-for="(result,index) in results">
+              <table-title :title="result.title"></table-title>
+              <template v-for="arr in result.data">
+                <template v-for="el in arr">
+                  <table-columns :value="el"></table-columns>
+                </template>
+              </template>
+              <div class="spinner-border text-primary" role="status" v-if="loadingIndex.includes(index)">
+                <span class="sr-only">Loading...</span>
+              </div>
+            </template>
+          </div>
         </div>
       </div>
     </div>
@@ -36,87 +62,98 @@
 
 <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
 <script>
-  let app = new Vue({
+  const newWorkerViaBlob = function (relativePath) {
+    const baseURL = window.location.href
+      .replace(/\\/g, '/')
+      .replace(/\/[^\/]*$/, '/')
+    const array = ['importScripts("' + baseURL + relativePath + '");']
+    const blob = new Blob(array, {
+      type: 'text/javascript',
+    })
+    var url = window.URL.createObjectURL(blob)
+    return new Worker(url)
+  }
+  const newWorker = function (relativePath) {
+    try {
+      return newWorkerViaBlob(relativePath)
+    } catch (e) {
+      return new Worker(relativePath)
+    }
+  }
+
+  Vue.component('table-title', {
+    props: ['title'],
+    template: '<div class="py-2 col-12 text-center border border-black bg-secondary text-white">{{title}}</div>'
+  })
+
+  Vue.component('table-columns', {
+    props: ['value'],
+    template: '<div class="py-2 col-2 text-center border border-black">{{value}}</div>'
+  })
+
+  const app = new Vue({
     el: '#app',
     data() {
       return {
-        message: 'Hello Vue.js',
         form: '',
+        isValid: true,
         worker: {},
+        baseData: [],
         results: [],
+        loadingIndex: []
       }
     },
     watch: {
       form: function (val) {
-
+        this.isValid = true
+        const text = this.form.replace(/\r\n|\r/g, "\n")
+        const lines = text.split('\n').filter(Boolean)
+        const params = []
+        lines.forEach((el) => {
+          const param = el.replace(/\t/g, ' ').split(' ').filter(Boolean)
+          if (param.length === 2 && !isNaN(param[0]) && !isNaN(param[1])) {
+            params.push({
+              num: param[0],
+              price: param.slice(-1)[0]
+            })
+          } else
+            this.isValid = false
+        })
+        if (this.isValid)
+          this.baseData = params
       }
     },
     methods: {
-      test() {
-        alert()
-      },
       calculation() {
-        const newWorkerViaBlob = function (relativePath) {
-          const baseURL = window.location.href
-            .replace(/\\/g, '/')
-            .replace(/\/[^\/]*$/, '/')
-          const array = ['importScripts("' + baseURL + relativePath + '");']
-          const blob = new Blob(array, {
-            type: 'text/javascript',
-          })
-          var url = window.URL.createObjectURL(blob)
-          return new Worker(url)
-        }
-        const newWorker = function (relativePath) {
-          try {
-            return newWorkerViaBlob(relativePath)
-          } catch (e) {
-            return new Worker(relativePath)
-          }
-        }
-
+        this.results = []
         if (Object.keys(this.worker).length) {
           this.worker.terminate()
           this.worker = {}
         }
-        const text = this.form.replace(/\r\n|\r/g, "\n")
-        const lines = text.split('\n').filter(Boolean)
-        const jobs = []
-        lines.forEach((el) => {
-          const params = el.replace(/\t/g, ' ').split(' ').filter(Boolean)
-          if (params.length === 2) {
-            const num = Number(params[0]) //件数入力
-            const price = Number(params.slice(-1)[0]) //合計金額入力
-            this.worker = newWorker('worker.js')
-            this.worker.postMessage({
-              num: num,
-              price: price,
-            })
-            const promise = new Promise((resolve, reject) => {
-              this.worker.addEventListener('message', (message) => {
-                console.log(message.data)
-                if (message.data === 'finish')
-                  resolve()
-                else {
-                  console.log(this)
-                  this.results.push(message.data)
-                }
-              })
-            })
-            jobs.push(promise)
-          }
-        })
-        Promise.all(jobs).then(() => {
-          console.log('Allfinish')
+        let count = 0
+        this.baseData.forEach((el) => {
+          const num = Number(el.num)
+          const price = Number(el.price)
+          this.loadingIndex.push(count)
+          this.results.push({})
+          this.$set(this.results[count], 'title', String(num) + '件 ' + String(price) + '円')
+          this.$set(this.results[count], 'data', [])
+          this.worker = newWorker('worker.js')
+          this.worker.postMessage({
+            index: count,
+            num: num,
+            price: price,
+          })
+          this.worker.addEventListener('message', (message) => {
+            if (this.loadingIndex.includes(message.data.index))
+              this.loadingIndex.splice(this.loadingIndex.indexOf(message.data.index), 1);
+            this.results[message.data.index].data.push(message.data.result)
+          })
+          count += 1
         })
       },
     },
   })
 </script>
-<style>
-  #app {
-    padding-top: 60px;
-  }
-</style>
 
 </html>

@@ -18,6 +18,6 @@
     "semi": ["error", "never", {
       "beforeStatementContinuationChars": "never"
     }],
-    "no-inner-declarations": "off"
+    "no-inner-declarations": "off",
   }
 }
